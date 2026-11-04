@@ -140,7 +140,7 @@ async def upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def dupload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
-    if not await can_upload(uid):
+    if not await is_staff(uid):
         return
     msg = update.effective_message
     wid = context.args[0] if context.args else None
