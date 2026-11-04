@@ -319,6 +319,102 @@ async def role_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(text)
 
 
+
+async def _role_guide_text(role_name):
+    if role_name == "sudo":
+        return (
+            "🛡️ SUDO COMMAND PANEL\n\n"
+            "/auction <waifu_id> <starting_bid> [hours]\n/auction users\n"
+            "/changetime <minutes>\n/gen <amount> <quantity> [cash|diamonds]\n"
+            "/dgen <waifu_id> <quantity>\n/dupload <waifu_id>\n"
+            "/give <waifu_id> @username\n/dtops"
+        )
+    return (
+        "📤 UPLOADER COMMAND PANEL\n\n"
+        "/upload — Upload waifu photo\n/dupload <waifu_id>\n"
+        "/give <waifu_id> @username\n/dgen <waifu_id> <quantity>\n"
+        "/auction <waifu_id> <starting_bid> [hours]\n/auction users\n/dtops"
+    )
+
+
+async def sudolist(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != settings.owner_id:
+        return
+    sudo, _ = await _roles()
+    if not sudo:
+        return await update.effective_message.reply_text("No SUDO users configured.")
+    rows = []
+    for uid in sorted(sudo):
+        try:
+            user = await context.bot.get_chat(uid)
+            name = user.full_name or "Unknown"
+            username = f" (@{user.username})" if user.username else ""
+        except Exception:
+            name, username = "Unknown", ""
+        rows.append(f"{name}{username} | ID: {uid}")
+    await update.effective_message.reply_text("👑 SUDO USERS\n\n" + "\n".join(rows))
+
+
+async def uploaderlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != settings.owner_id:
+        return
+    _, uploaders = await _roles()
+    if not uploaders:
+        return await update.effective_message.reply_text("No uploaders configured.")
+    rows = []
+    for uid in sorted(uploaders):
+        try:
+            user = await context.bot.get_chat(uid)
+            name = user.full_name or "Unknown"
+            username = f" (@{user.username})" if user.username else ""
+        except Exception:
+            name, username = "Unknown", ""
+        rows.append(f"{name}{username} | ID: {uid}")
+    await update.effective_message.reply_text("📤 UPLOADER USERS\n\n" + "\n".join(rows))
+
+
+async def sudocommands(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    sudo, _ = await _roles()
+    if update.effective_user.id != settings.owner_id and update.effective_user.id not in sudo:
+        return
+    text = await _role_guide_text("sudo")
+    if update.effective_message.chat.type != "private":
+        try:
+            await context.bot.send_message(chat_id=update.effective_user.id, text=text)
+            return await update.effective_message.reply_text("✅ SUDO command guide sent in your DM.")
+        except Exception:
+            return await update.effective_message.reply_text("Start the bot in private first.")
+    await update.effective_message.reply_text(text)
+
+
+async def uploadercommands(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    _, uploaders = await _roles()
+    if update.effective_user.id != settings.owner_id and update.effective_user.id not in uploaders:
+        return
+    text = await _role_guide_text("uploader")
+    if update.effective_message.chat.type != "private":
+        try:
+            await context.bot.send_message(chat_id=update.effective_user.id, text=text)
+            return await update.effective_message.reply_text("✅ Uploader command guide sent in your DM.")
+        except Exception:
+            return await update.effective_message.reply_text("Start the bot in private first.")
+    await update.effective_message.reply_text(text)
+
+
+async def role_guide_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    sudo, uploaders = await _roles()
+    uid = q.from_user.id
+    if q.data == "SUDO_GUIDE" and (uid == settings.owner_id or uid in sudo):
+        text = await _role_guide_text("sudo")
+    elif q.data == "UPLOADER_GUIDE" and (uid == settings.owner_id or uid in uploaders):
+        text = await _role_guide_text("uploader")
+    else:
+        return await q.answer("This guide is not assigned to your account.", show_alert=True)
+    await q.answer()
+    await q.message.reply_text(text)
+
+
 def register(app):
     app.add_handler(CommandHandler("upload", upload))
     app.add_handler(CommandHandler("dupload", dupload))
@@ -326,5 +422,10 @@ def register(app):
     for cmd in ("addsudo", "rsudo", "adduploader", "ruploader"):
         app.add_handler(CommandHandler(cmd, role_change))
     app.add_handler(CommandHandler("stafflist", role_list))
+    app.add_handler(CommandHandler("sudolist", sudolist))
+    app.add_handler(CommandHandler("uploaderlist", uploaderlist))
+    app.add_handler(CommandHandler("sudocommands", sudocommands))
+    app.add_handler(CommandHandler("uploadercommands", uploadercommands))
     app.add_handler(CallbackQueryHandler(admin_callback, pattern=r"^adm:delete:|^adm:cancel:"))
     app.add_handler(CallbackQueryHandler(staff_gift_callback, pattern=r"^adm:gift:"))
+    app.add_handler(CallbackQueryHandler(role_guide_callback, pattern=r"^(SUDO_GUIDE|UPLOADER_GUIDE)$"))

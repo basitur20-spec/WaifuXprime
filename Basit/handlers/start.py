@@ -21,8 +21,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "━━━━━━━━━━━━━━━━━━━━━━"
     )
     buttons = [
-        [InlineKeyboardButton("UPDATES 💫", url=f"https://t.me/{settings.update_chat.lstrip('@')}"),
-         InlineKeyboardButton("SUPPORT 🏪", url=f"https://t.me/{settings.support_chat.lstrip('@')}")],
+        [InlineKeyboardButton("UPDATES 💫", url="https://t.me/+4UJ1aAf4-ypiNThk"),
+         InlineKeyboardButton("SUPPORT 🏪", url="https://t.me/+LfvrnvE8x3I3OGU0")],
         [InlineKeyboardButton("ADD TO GROUP ✨", url=f"https://t.me/{context.bot.username}?startgroup=true")],
         [InlineKeyboardButton("GROUP ☘️", url="https://t.me/movieandweb_s_group"),
          InlineKeyboardButton("HELP ⚙️", callback_data="help:home")],

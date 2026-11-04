@@ -37,6 +37,8 @@ async def post_init(application: Application):
     from .handlers.marketplace import schedule_open_auctions
     if application.job_queue:
         await schedule_open_auctions(application)
+    from .handlers.economy import recover_pending_payments
+    await recover_pending_payments(application)
     LOGGER.info("Connected to MongoDB; bot identity: @%s", application.bot.username)
 
 
@@ -63,7 +65,7 @@ def build_application() -> Application:
         .post_shutdown(post_shutdown)
         .build()
     )
-    from .handlers import start, gameplay, collection, lookup, economy, inline, admin, marketplace, transfers, games, codes, claims, profiles, maintenance
+    from .handlers import start, gameplay, collection, lookup, economy, inline, admin, marketplace, transfers, games, codes, claims, profiles, maintenance, chat_filters, broadcast
     maintenance.register(application)  # Early command guard runs in handler group -1.
     start.register(application)
     gameplay.register(application)
@@ -78,6 +80,8 @@ def build_application() -> Application:
     codes.register(application)
     claims.register(application)
     profiles.register(application)
+    chat_filters.register(application)
+    broadcast.register(application)
     application.add_error_handler(error_handler)
     return application
 

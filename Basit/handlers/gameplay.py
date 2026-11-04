@@ -12,7 +12,7 @@ from pymongo import ReturnDocument
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
 )
-from telegram.constants import ChatType
+from telegram.constants import ChatType, ChatMemberStatus
 from telegram.ext import CommandHandler, MessageHandler, ContextTypes, filters
 
 from ..config import RARITIES, load_settings, normalize_rarity, rarity_meta
@@ -264,11 +264,18 @@ async def spawn_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def changetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
-    if uid != settings.owner_id and uid not in settings.sudo_users and uid not in settings.uploader_users:
-        return
     msg = update.effective_message
     if msg.chat.type not in (ChatType.GROUP, ChatType.SUPERGROUP):
-        return
+        return await msg.reply_text("Use /changetime inside the group.")
+    allowed = uid == settings.owner_id or uid in settings.sudo_users or uid in settings.uploader_users
+    if not allowed:
+        try:
+            member = await context.bot.get_chat_member(msg.chat_id, uid)
+            allowed = member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER)
+        except Exception:
+            allowed = False
+    if not allowed:
+        return await msg.reply_text("Only group admins, owner, SUDO or uploaders can change the spawn interval.")
     if len(context.args) != 1 or not context.args[0].isdigit():
         return await msg.reply_text("Usage: /changetime 5 (2–120 minutes)")
     minutes = int(context.args[0])
@@ -276,7 +283,6 @@ async def changetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await msg.reply_text("Spawn interval must be between 2 and 120 minutes.")
     await groups.update_one({"_id": msg.chat_id}, {"$set": {"spawn_interval_minutes": minutes}}, upsert=True)
     await msg.reply_text(f"⏱️ Spawn interval updated: every {minutes} minutes (and after the configured message count).")
-
 
 async def _claim_with_cooldown(update, command_key, seconds, allowed_rarities):
     user = update.effective_user

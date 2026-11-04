@@ -44,7 +44,12 @@ async def initialize_database():
     await user_collection.create_index("characters.id")
     await group_members.create_index([("chat_id", ASCENDING), ("user_id", ASCENDING)], unique=True)
     await auctions.create_index([("status", ASCENDING), ("ends_at", ASCENDING)])
-    await pending_actions.create_index("expires_at", expireAfterSeconds=0)
+    # Do not TTL-delete pending payments: expired reservations must be refunded.
+    try:
+        await pending_actions.drop_index("expires_at_1")
+    except Exception:
+        pass
+    await pending_actions.create_index("expires_at")
     await transactions.create_index("transaction_id", unique=True)
     await codes.create_index("code", unique=True)
     await user_claims.create_index([("event_id", ASCENDING), ("user_id", ASCENDING)], unique=True)
@@ -125,3 +130,17 @@ async def adjust_balance(user_id, cash_delta=0, diamond_delta=0):
     if diamond_delta > 0:
         await credit_balance(user_id, "diamonds", diamond_delta)
     return True
+
+
+async def credit_balance_once(user_id, currency, amount, transaction_id):
+    """Atomically credit a wallet at most once for a transaction identifier."""
+    amount = int(amount)
+    if amount < 0:
+        raise ValueError("Credit amount cannot be negative")
+    field = "cash" if currency == "cash" else "diamonds"
+    await get_user(user_id)
+    result = await user_collection.update_one(
+        {"id": int(user_id), "processed_transactions": {"$ne": str(transaction_id)}},
+        {"$inc": {field: amount}, "$addToSet": {"processed_transactions": str(transaction_id)}},
+    )
+    return result.modified_count == 1
