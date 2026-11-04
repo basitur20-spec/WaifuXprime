@@ -31,7 +31,7 @@ async def post_init(application: Application):
         ("bid", "Place a bid in an auction"), ("gift", "Gift one of your waifus"),
         ("trade", "Trade waifus with another user"), ("changetime", "Change group spawn interval"),
         ("spawn", "Toggle rarity spawns (owner)"), ("upload", "Upload a waifu (staff)"),
-        ("dupload", "Delete an uploaded waifu (staff)"),
+        ("dupload", "Delete an uploaded waifu (staff)"), ("filters", "List group filters"),
     ]
     await application.bot.set_my_commands([BotCommand(command, description) for command, description in commands])
     from .handlers.marketplace import schedule_open_auctions

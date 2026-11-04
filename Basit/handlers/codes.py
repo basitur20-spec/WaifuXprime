@@ -7,7 +7,7 @@ from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
 from ..config import load_settings
-from ..database import codes, credit_balance, add_character, audit_logs
+from ..database import codes, credit_balance, add_character, audit_logs, settings_collection
 from ..services.characters import by_id
 from .admin import _roles
 
@@ -104,6 +104,16 @@ async def dgen(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def _redeem(update, code, kind):
     uid = update.effective_user.id
+    role = await role_of(uid)
+    preferences = await settings_collection.find_one({"_id": "code_settings"}) or {}
+    initial = await codes.find_one({"_id": code, "type": kind})
+    if not initial:
+        return await update.effective_message.reply_text("❌ Invalid or expired code.")
+    creator_role = initial.get("creator_role", "owner")
+    if role in {"sudo", "uploader"} and creator_role in {"sudo", "uploader"}:
+        setting = "dredeem_sudo_allowed" if kind == "waifu" else "redeem_sudo_allowed"
+        if not preferences.get(setting, False):
+            return await update.effective_message.reply_text("❌ Staff code redemption is disabled by the owner.")
     doc = await codes.find_one({"_id": code, "type": kind})
     if not doc:
         return await update.effective_message.reply_text("❌ Invalid or expired code.")
@@ -145,7 +155,25 @@ async def _redeem(update, code, kind):
     )
 
 
+async def _set_redeem_permission(update: Update, context: ContextTypes.DEFAULT_TYPE, field: str):
+    if not context.args or context.args[0].casefold() not in {"on", "off"}:
+        return False
+    if update.effective_user.id != settings.owner_id:
+        await update.effective_message.reply_text("Only the owner can change this setting.")
+        return True
+    enabled = context.args[0].casefold() == "on"
+    await settings_collection.update_one(
+        {"_id": "code_settings"}, {"$set": {field: enabled}}, upsert=True
+    )
+    await update.effective_message.reply_text(
+        "✅ Staff code redemption " + ("enabled." if enabled else "disabled.")
+    )
+    return True
+
+
 async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if await _set_redeem_permission(update, context, "redeem_sudo_allowed"):
+        return
     if len(context.args) != 1:
         return await update.effective_message.reply_text("Usage: /redeem <code>")
     code = context.args[0].upper()
@@ -156,6 +184,8 @@ async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def dredeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if await _set_redeem_permission(update, context, "dredeem_sudo_allowed"):
+        return
     if len(context.args) != 1:
         return await update.effective_message.reply_text("Usage: /dredeem <code>")
     await _redeem(update, context.args[0].upper(), "waifu")

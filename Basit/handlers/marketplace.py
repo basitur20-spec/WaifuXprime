@@ -268,12 +268,30 @@ async def add_auction(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     args = context.args
     if not args or args[0].casefold() == "users":
-        active = await auctions.find({"status": "open"}).sort("highest_bid", -1).to_list(length=50)
+        query = {"status": "open"}
+        if len(args) > 1:
+            query["waifu_id"] = str(args[1])
+        active = await auctions.find(query).sort("highest_bid", -1).to_list(length=50)
         if not active:
             return await update.effective_message.reply_text("No active auctions.")
-        text = "🔨 ACTIVE AUCTIONS\n"
+        text = "🔨 ACTIVE AUCTIONS AND BIDDERS\n"
         for item in active:
-            text += f'ID {item["waifu_id"]} | {item["character"].get("name")} | {_cash(item["highest_bid"])} Cash | {_remaining(item["ends_at"])}\n'
+            text += f'\nID {item["waifu_id"]} | {item["character"].get("name")}\n'
+            text += f'Current: {_cash(item["highest_bid"])} Cash | {_remaining(item["ends_at"])} left\n'
+            bids = item.get("bids", [])
+            if bids:
+                for bid in bids[-20:]:
+                    bidder_id = int(bid.get("user_id", 0))
+                    bidder = await user_collection.find_one({"id": bidder_id}) or {}
+                    display = "@" + bidder["username"] if bidder.get("username") else bidder.get("first_name") or str(bidder_id)
+                    text += f'• {display} (ID {bidder_id}) — {_cash(bid.get("amount", 0))}\n'
+            elif item.get("highest_bidder"):
+                bidder_id = int(item["highest_bidder"])
+                bidder = await user_collection.find_one({"id": bidder_id}) or {}
+                display = "@" + bidder["username"] if bidder.get("username") else bidder.get("first_name") or str(bidder_id)
+                text += f'• {display} (ID {bidder_id}) — {_cash(item["highest_bid"])}\n'
+            else:
+                text += "No bids yet.\n"
         return await update.effective_message.reply_text(text)
     if len(args) not in (2, 3, 4) or not args[0].isdigit() or not args[1].replace(",", "").isdigit():
         return await update.effective_message.reply_text(
@@ -467,7 +485,7 @@ async def bid_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE, token)
         {"_id": auction["_id"], "status": "open", "highest_bid": previous_amount,
          "ends_at": {"$gt": _now()}},
         {"$set": {"highest_bid": int(pending["amount"]), "highest_bidder": q.from_user.id},
-         "$addToSet": {"bidders": q.from_user.id}},
+         "$addToSet": {"bidders": q.from_user.id}, "$push": {"bids": {"user_id": q.from_user.id, "amount": int(pending["amount"]), "created_at": _now()}}},
     )
     if changed.modified_count != 1:
         await credit_balance(q.from_user.id, "cash", int(pending["difference"]))

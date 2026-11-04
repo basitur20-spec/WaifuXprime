@@ -1,39 +1,32 @@
 # WaifuX Prime
 
-Modular Telegram waifu collector bot.
+Professional modular Telegram waifu/character collector bot.
 
-## Runtime
-- Python 3.11
-- python-telegram-bot 21.6
-- MongoDB (Motor 3.6 / PyMongo 4.9)
-- Start: `python -m Basit`
-
-## Configuration
-Copy `.env.example` to `.env`, or set the same names in Replit Secrets / deployment environment variables. Required: `BOT_TOKEN`, `MONGO_URI`, and `OWNER_ID`. Configure `SUDO_USERS`, `UPLOADER_USERS`, `CHARA_CHANNEL_ID`, `BOT_USERNAME`, `SUPPORT_CHAT`, `UPDATE_CHAT`, and group spawn settings as needed.
-
-Never commit `.env`, tokens, database URIs/passwords, or API secrets.
-
-## Security action required
-The old public `main` branch contained hard-coded Telegram and MongoDB credentials in `Basit/config.py`. Treat them as compromised: revoke/regenerate the bot token with BotFather, change the MongoDB database-user password, review/revoke the exposed Telegram API hash, and store replacements only in deployment secrets. This refactor branch sanitizes the config, but it does not erase secrets from old Git history or secure a deployment still using old credentials.
-
-## Data migration
-The previous prototype used MongoDB, SQLite, and JSON files. Back up MongoDB and the old `data/` directory before switching. Run `python -m Basit.migrate_legacy --dry-run` to preview; review before running `python -m Basit.migrate_legacy`. Original source files are never deleted. Migration must be run explicitly, not at startup.
-
-## Implemented refactor modules
-Start/help; group spawn/hunt/rarity control; daily waifu, marriage and propose; collection/favorite/display modes/inline; character lookup/search; balance, explore, bonus, payment; marketplace, auctions and bids; selling, gifting and trading; uploader/dupload/staff give; dice games and Mines; profile/setprofile; redeem codes and event claims; owner maintenance controls; group text filters and owner broadcast.
-
-Files under `Basit/modules/` are retained as legacy reference and are not loaded by the new entry point. They contain imports tied to the old mismatched `shivu` package and should not be loaded alongside the new handlers.
-
-## Operational notes
-- Group spam mute needs permission to restrict members.
-- `/upload` takes a photo plus `/upload Name | Rarity | Anime | OptionalPrice`.
-- `/propose` media must be configured as direct image URLs or Telegram file IDs; a Telegram post URL is not itself a direct photo.
-- Inline keyboards cannot contain a free-text field, so auction bids use `/bid <amount>` in reply to the bot's bid prompt.
-- Rarity chance values from the supplied spec total more than 100; spawn selection treats them as relative weights and normalizes them.
+## Project layout
+- Basit/main.py: application startup and handler registration.
+- Basit/config.py: environment configuration and rarity catalogue.
+- Basit/database.py: MongoDB access and wallet helpers.
+- Basit/handlers/: Telegram commands and callback handlers grouped by feature.
+- Basit/services/: character selection and matching helpers.
+- Basit/migrate_legacy.py: optional import of legacy SQLite/JSON data.
+- tests/: core unit checks; GitHub Actions runs compile and tests.
 
 ## Run
-`python -m pip install -r requirements.txt`
-`python -m compileall -q Basit main.py`
-`python -m Basit`
+Use Python 3.11. Install requirements with `python -m pip install -r requirements.txt`, configure Replit Secrets, then run `python -m Basit` (or `python main.py`).
 
-A live run requires valid environment variables and reachable MongoDB. Test the migration and command flows against a database backup before production deployment.
+Required environment variables: BOT_TOKEN, MONGO_URI and OWNER_ID.
+Optional variables: MONGO_DB_NAME, SUDO_USERS, UPLOADER_USERS, GROUP_ID, CHARA_CHANNEL_ID, BOT_USERNAME, SUPPORT_CHAT, UPDATE_CHAT, SPAWN_EVERY_MESSAGES, SPAWN_LIFETIME_SECONDS and PROPOSE_*_IMAGE.
+
+Never commit .env, bot tokens or database credentials.
+
+## Main features
+Start/help; group spawn and hunt; daily waifu, marriage and proposal; favorites, collection, inline and lookup; Cash and Diamonds; streak bonuses and exploration; confirmed Cash/Diamond payments; marketplace, auctions and bids; sell, gift and trade; upload/delete; SUDO/uploader roles; code generation/redemption; event claims; dice and Mines; profiles; owner maintenance; group filters; owner broadcast; global leaderboards.
+
+## Legacy data migration
+The app retains the original MongoDB collection names. The supplied Replit source also used data/balance_system.db, data/collection.db and data/users.json. Back up MongoDB and the old data folder, copy legacy SQLite/JSON files to data/, run `python -m Basit.migrate_legacy --dry-run`, review the output, then run `python -m Basit.migrate_legacy` once. The importer does not delete source data.
+
+## Security
+The old public main branch contained hard-coded Telegram and MongoDB credentials in Basit/config.py. Treat them as compromised: regenerate the bot token and rotate the MongoDB database-user password. Use Replit Secrets only. Removing old files from the current tree does not erase credentials from Git history.
+
+## Deployment notes
+The bot needs permission to restrict group members for spam mutes and to post in CHARA_CHANNEL_ID when configured. Auction bids use /bid <amount> in reply to the bot's prompt. Validate commands in a test group and a database backup before production.
