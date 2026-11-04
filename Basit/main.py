@@ -64,7 +64,8 @@ def build_application() -> Application:
         .build()
     )
     from .handlers import start, gameplay, collection, lookup, economy, inline, admin, marketplace, transfers, games, codes, claims, profiles, maintenance
-    maintenance.register(application)  # Early command guard runs in handler group -1.\n    start.register(application)
+    maintenance.register(application)  # Early command guard runs in handler group -1.
+    start.register(application)
     gameplay.register(application)
     collection.register(application)
     lookup.register(application)

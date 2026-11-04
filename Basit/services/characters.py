@@ -16,7 +16,8 @@ def key(text):
 def name_matches(name, query):
     parts = key(query).split()
     target = key(name)
-    return bool(parts) and all(part in target for part in parts)
+    # A single correct name word is enough to claim a spawned character.
+    return bool(parts) and any(part in target.split() for part in parts)
 
 
 async def by_id(value):
