@@ -15,7 +15,7 @@ from telegram import (
 from telegram.constants import ChatType, ChatMemberStatus
 from telegram.ext import CommandHandler, MessageHandler, ContextTypes, filters
 
-from ..config import RARITIES, load_settings, normalize_rarity, rarity_meta
+from ..config import RARITIES, SPAWN_RARITIES, load_settings, normalize_rarity, rarity_meta
 from ..database import (
     groups, settings_collection, user_collection, get_user, debit_balance,
     adjust_balance,
@@ -257,7 +257,7 @@ async def spawn_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await update.effective_message.reply_text("Usage: /spawn <rarity> <on|off>")
     rarity = normalize_rarity(context.args[0])
     mode = context.args[1].lower()
-    if rarity not in RARITIES or mode not in {"on", "off"}:
+    if rarity not in SPAWN_RARITIES or mode not in {"on", "off"}:
         return await update.effective_message.reply_text("Invalid rarity or status. Use /spawn CrossArc on")
     enabled = mode == "on"
     await settings_collection.update_one(

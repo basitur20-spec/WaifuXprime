@@ -5,7 +5,7 @@ os.environ.setdefault("BOT_TOKEN", "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh
 os.environ.setdefault("MONGO_URI", "mongodb://localhost:27017")
 os.environ.setdefault("OWNER_ID", "8163432539")
 
-from Basit.config import normalize_rarity, rarity_meta
+from Basit.config import normalize_rarity, rarity_meta, SPAWN_RARITIES
 from Basit.services.characters import name_matches
 from Basit.migrate_legacy import legacy_bonus_fields
 from Basit.handlers.gameplay import WAIFU_RARITY_WEIGHTS, PROPOSE_RARITY_WEIGHTS
@@ -16,6 +16,13 @@ class CoreHelpersTest(unittest.TestCase):
     def test_legacy_rarity_aliases(self):
         self.assertEqual(normalize_rarity("Common"), "starter")
         self.assertEqual(normalize_rarity("Legendary"), "shiny")
+
+    def test_group_spawn_pool_uses_only_requested_rarities(self):
+        self.assertEqual(len(SPAWN_RARITIES), 15)
+        self.assertNotIn("limitedarc", SPAWN_RARITIES)
+        self.assertNotIn("specialarc", SPAWN_RARITIES)
+        self.assertNotIn("divinearc", SPAWN_RARITIES)
+        self.assertNotIn("cinemaarc", SPAWN_RARITIES)
 
     def test_rarity_metadata(self):
         self.assertEqual(rarity_meta("RoyalArc")["name"], "RoyalArc")

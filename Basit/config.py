@@ -88,6 +88,13 @@ RARITIES = {
     "cinemaarc": {"name": "CinemaArc", "emoji": "🎥", "weight": 8, "price": (800000, 1300000)},
 }
 
+SPAWN_RARITIES = (
+    "starter", "rising", "shiny", "ultimate",
+    "beacharc", "chibiarc", "winterarc", "lovearc", "darkarc",
+    "christmasarc", "royalarc", "neonarc", "celestialarc",
+    "crossarc", "mangaarc",
+)
+
 LEGACY_RARITY_ALIASES = {"common": "starter", "rare": "rising", "legendary": "shiny", "medium": "ultimate"}
 
 

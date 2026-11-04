@@ -1,7 +1,7 @@
 """Character database helpers."""
 import random
 import re
-from ..config import RARITIES, normalize_rarity, rarity_meta
+from ..config import RARITIES, SPAWN_RARITIES, normalize_rarity, rarity_meta
 from ..database import characters, user_collection, add_character
 
 
@@ -58,7 +58,7 @@ async def enabled_spawn_rarities():
     from ..database import settings_collection
     doc = await settings_collection.find_one({"_id": "spawn_rarities"}) or {}
     enabled = doc.get("enabled", {})
-    return [r for r in RARITIES if enabled.get(r, True)]
+    return [r for r in SPAWN_RARITIES if enabled.get(r, True)]
 
 
 async def grant(user_id, character, source):
