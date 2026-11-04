@@ -27,6 +27,10 @@ pending_actions = db["waifu_pending_actions"]
 codes = db["waifu_redeem_codes"]
 audit_logs = db["waifu_audit_logs"]
 sequences = db["waifu_sequences"]
+mines_games = db["waifu_mines_games"]
+claim_events = db["waifu_claim_events"]
+user_claims = db["waifu_user_claims"]
+legacy_migrations = db["waifu_legacy_migrations"]
 
 
 async def initialize_database():
@@ -42,7 +46,8 @@ async def initialize_database():
     await pending_actions.create_index("expires_at", expireAfterSeconds=0)
     await transactions.create_index("transaction_id", unique=True)
     await codes.create_index("code", unique=True)
-    await audit_logs.create_index([("created_at", DESCENDING)])
+    await user_claims.create_index([("event_id", ASCENDING), ("user_id", ASCENDING)], unique=True)
+    await mines_games.create_index([("user_id", ASCENDING), ("status", ASCENDING)])
 
 
 async def close_database():
@@ -83,6 +88,8 @@ async def add_character(user_id, character, source):
 
 
 async def debit_balance(user_id, currency, amount):
+    if int(amount) <= 0:
+        return False
     field = "cash" if currency == "cash" else "diamonds"
     result = await user_collection.update_one(
         {"id": int(user_id), field: {"$gte": int(amount)}},
@@ -92,6 +99,8 @@ async def debit_balance(user_id, currency, amount):
 
 
 async def credit_balance(user_id, currency, amount):
+    if int(amount) < 0:
+        raise ValueError("Credit amount cannot be negative")
     field = "cash" if currency == "cash" else "diamonds"
     await user_collection.update_one(
         {"id": int(user_id)},
