@@ -212,17 +212,23 @@ async def give(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await msg.reply_text("Usage: reply to a user and use /give <waifu_id>, or /give <waifu_id> @username")
     wid = context.args[0]
     target = msg.reply_to_message.from_user if msg.reply_to_message else None
-    if len(context.args) > 1 and context.args[1].startswith("@"):
-        target_doc = await user_collection.find_one({"username": context.args[1][1:]})
-        if target_doc:
-            target_id = int(target_doc["id"])
-            target_name = target_doc.get("first_name", context.args[1])
-        else:
+    target_spec = context.args[1] if len(context.args) > 1 else None
+    if target_spec and target_spec.startswith("@"):
+        target_doc = await user_collection.find_one({"username": target_spec[1:]})
+        if not target_doc:
             return await msg.reply_text("Target user not found. They must start the bot first.")
+        target_id = int(target_doc["id"])
+        target_name = target_doc.get("first_name") or target_spec
+    elif target_spec and target_spec.isdigit():
+        target_doc = await user_collection.find_one({"id": int(target_spec)})
+        if not target_doc:
+            return await msg.reply_text("Target user ID is not registered. They must start the bot first.")
+        target_id = int(target_doc["id"])
+        target_name = target_doc.get("first_name") or target_doc.get("username") or target_spec
     elif target:
         target_id, target_name = target.id, target.full_name
     else:
-        return await msg.reply_text("Reply to a user or specify @username.")
+        return await msg.reply_text("Reply to a user or specify @username or numeric user ID.")
     char = await by_id(wid)
     if not char:
         return await msg.reply_text("⚠️ Invalid waifu ID.")
