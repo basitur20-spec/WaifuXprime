@@ -8,7 +8,7 @@ settings = load_settings()
 client = AsyncIOMotorClient(settings.mongo_uri, serverSelectionTimeoutMS=10000)
 db = client[settings.mongo_db_name]
 
-# Existing collections from the original bot; do not rename or migrate them.
+# Original collections are retained to preserve existing character/user data.
 characters = db["anime_characters_lol"]
 user_collection = db["user_collection_lmaoooo"]
 user_totals = db["user_totals_lmaoooo"]
@@ -16,8 +16,9 @@ group_user_totals = db["group_user_totalsssssss"]
 top_global_groups = db["top_global_groups"]
 pm_users = db["total_pm_users"]
 
-# Durable collections for new systems.
+# New durable state collections.
 groups = db["waifu_group_state"]
+group_members = db["waifu_group_members"]
 settings_collection = db["waifu_settings"]
 transactions = db["waifu_transactions"]
 marketplaces = db["waifu_marketplaces"]
@@ -25,6 +26,7 @@ auctions = db["waifu_auctions"]
 pending_actions = db["waifu_pending_actions"]
 codes = db["waifu_redeem_codes"]
 audit_logs = db["waifu_audit_logs"]
+sequences = db["waifu_sequences"]
 
 
 async def initialize_database():
@@ -32,9 +34,10 @@ async def initialize_database():
     await characters.create_index("id", unique=True, sparse=True)
     await characters.create_index([("name", ASCENDING)])
     await characters.create_index([("anime", ASCENDING)])
+    await characters.create_index("rarity")
     await user_collection.create_index("id", unique=True)
     await user_collection.create_index("characters.id")
-    await groups.create_index("_id", unique=True)
+    await group_members.create_index([("chat_id", ASCENDING), ("user_id", ASCENDING)], unique=True)
     await auctions.create_index([("status", ASCENDING), ("ends_at", ASCENDING)])
     await pending_actions.create_index("expires_at", expireAfterSeconds=0)
     await transactions.create_index("transaction_id", unique=True)
@@ -74,7 +77,7 @@ async def add_character(user_id, character, source):
     await user_collection.update_one(
         {"id": int(user_id)},
         {"$setOnInsert": {"id": int(user_id), "cash": 0, "diamonds": 0, "favorites": []},
-         "$push": {"characters": owned}},
+         "$push": {"characters": owned}, "$inc": {"total_collected": 1}},
         upsert=True,
     )
 
@@ -96,3 +99,18 @@ async def credit_balance(user_id, currency, amount):
          "$setOnInsert": {"id": int(user_id), "characters": [], "favorites": []}},
         upsert=True,
     )
+
+
+async def adjust_balance(user_id, cash_delta=0, diamond_delta=0):
+    """Compatibility helper; negative deltas cannot overdraw."""
+    if cash_delta < 0 and not await debit_balance(user_id, "cash", -cash_delta):
+        return False
+    if diamond_delta < 0 and not await debit_balance(user_id, "diamonds", -diamond_delta):
+        if cash_delta < 0:
+            await credit_balance(user_id, "cash", -cash_delta)
+        return False
+    if cash_delta > 0:
+        await credit_balance(user_id, "cash", cash_delta)
+    if diamond_delta > 0:
+        await credit_balance(user_id, "diamonds", diamond_delta)
+    return True
