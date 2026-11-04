@@ -26,6 +26,14 @@ from ..services.characters import (
 )
 
 settings = load_settings()
+
+# Reward-specific weights from the supplied Replit/feature specification.
+WAIFU_RARITY_WEIGHTS = {
+    "starter": 50, "rising": 50, "shiny": 50, "ultimate": 50, "royalarc": 5,
+}
+PROPOSE_RARITY_WEIGHTS = {
+    "christmasarc": 35, "royalarc": 60, "neonarc": 35, "celestialarc": 55,
+}
 SPAM_WINDOW = 5
 SPAM_LIMIT = 5
 MUTE_SECONDS = 300
@@ -284,11 +292,11 @@ async def changetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await groups.update_one({"_id": msg.chat_id}, {"$set": {"spawn_interval_minutes": minutes}}, upsert=True)
     await msg.reply_text(f"⏱️ Spawn interval updated: every {minutes} minutes (and after the configured message count).")
 
-async def _claim_with_cooldown(update, command_key, seconds, allowed_rarities):
+async def _claim_with_cooldown(update, command_key, seconds, allowed_rarities, rarity_weights=None):
     user = update.effective_user
     msg = update.effective_message
     await get_user(user.id, user)
-    character = await random_character(allowed_rarities)
+    character = await random_character(allowed_rarities, weights=rarity_weights)
     if not character:
         return await msg.reply_text("No waifus are uploaded for this reward pool yet.")
     now = _now()
@@ -310,8 +318,11 @@ async def _claim_with_cooldown(update, command_key, seconds, allowed_rarities):
 
 
 async def waifu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await _claim_with_cooldown(update, "waifu", 12 * 60 * 60,
-                               ["Starter", "Rising", "Shiny", "Ultimate", "RoyalArc"])
+    await _claim_with_cooldown(
+        update, "waifu", 12 * 60 * 60,
+        ["Starter", "Rising", "Shiny", "Ultimate", "RoyalArc"],
+        rarity_weights=WAIFU_RARITY_WEIGHTS,
+    )
 
 
 async def marriage(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -367,7 +378,10 @@ async def propose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     threshold = random.randint(35, 45)
     accepted = random.randint(1, 100) <= threshold
     if accepted:
-        character = await random_character(["ChristmasArc", "RoyalArc", "NeonArc", "CelestialArc"])
+        character = await random_character(
+            ["ChristmasArc", "RoyalArc", "NeonArc", "CelestialArc"],
+            weights=PROPOSE_RARITY_WEIGHTS,
+        )
         if character:
             await grant(user.id, character, "propose")
             result = (
@@ -382,6 +396,14 @@ async def propose(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_to_message_id=second.message_id,
             )
             return
+        # Do not charge a user when the accepted-reward pool is empty.
+        await credit_balance(user.id, "cash", 30000)
+        await user_collection.update_one(
+            {"id": user.id}, {"$unset": {"propose_next_at": ""}}
+        )
+        return await msg.reply_text(
+            "⚠️ The proposal reward pool is empty. Your 30,000 Cash was refunded and cooldown reset."
+        )
     rejection_image = random.choice([
         os.getenv("PROPOSE_REJECT_IMAGE_1", "").strip(),
         os.getenv("PROPOSE_REJECT_IMAGE_2", "").strip(),

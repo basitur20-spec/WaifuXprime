@@ -152,7 +152,7 @@ async def bonus_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     update_fields = {key: now + interval}
     if not weekly:
         last_claim = current.get("last_daily_claim_at")
-        if last_claim and now - last_claim <= timedelta(hours=24):
+        if last_claim and now - last_claim <= timedelta(hours=48):
             streak += 1
         else:
             streak = 1

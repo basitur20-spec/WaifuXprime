@@ -28,14 +28,24 @@ async def by_id(value):
     return await characters.find_one({"id": int(value)}) if value.isdigit() else None
 
 
-async def random_character(allowed=None):
+async def random_character(allowed=None, weights=None):
     allowed = {normalize_rarity(x) for x in allowed} if allowed else set(RARITIES)
     all_chars = await characters.find({}).to_list(length=20000)
     pool = [c for c in all_chars if image_of(c) and normalize_rarity(str(c.get("rarity", ""))) in allowed]
     if not pool:
         return None
     rarity_keys = sorted({normalize_rarity(str(c.get("rarity", ""))) for c in pool})
-    rarity = random.choices(rarity_keys, weights=[RARITIES.get(k, {}).get("weight", 1) for k in rarity_keys])[0]
+    weight_map = {
+        normalize_rarity(str(key)): max(0, int(value))
+        for key, value in (weights or {}).items()
+    }
+    rarity_weights = [
+        weight_map.get(key, RARITIES.get(key, {}).get("weight", 1))
+        for key in rarity_keys
+    ]
+    if not any(rarity_weights):
+        rarity_weights = [1] * len(rarity_keys)
+    rarity = random.choices(rarity_keys, weights=rarity_weights)[0]
     chosen = random.choice([c for c in pool if normalize_rarity(str(c.get("rarity", ""))) == rarity])
     if not chosen.get("price"):
         low, high = rarity_meta(rarity)["price"]

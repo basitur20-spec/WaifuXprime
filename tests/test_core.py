@@ -8,6 +8,7 @@ os.environ.setdefault("OWNER_ID", "8163432539")
 from Basit.config import normalize_rarity, rarity_meta
 from Basit.services.characters import name_matches
 from Basit.migrate_legacy import legacy_bonus_fields
+from Basit.handlers.gameplay import WAIFU_RARITY_WEIGHTS, PROPOSE_RARITY_WEIGHTS
 from datetime import datetime, timedelta
 
 
@@ -43,6 +44,16 @@ class CoreHelpersTest(unittest.TestCase):
         self.assertEqual(fields["daily_streak"], 7)
         self.assertEqual(fields["highest_streak"], 14)
         self.assertIn("legacy_bonus", fields)
+
+    def test_reward_specific_rarity_weights_match_specification(self):
+        self.assertEqual(
+            WAIFU_RARITY_WEIGHTS,
+            {"starter": 50, "rising": 50, "shiny": 50, "ultimate": 50, "royalarc": 5},
+        )
+        self.assertEqual(
+            PROPOSE_RARITY_WEIGHTS,
+            {"christmasarc": 35, "royalarc": 60, "neonarc": 35, "celestialarc": 55},
+        )
 
     def test_application_registers_all_handlers(self):
         from Basit.main import build_application
