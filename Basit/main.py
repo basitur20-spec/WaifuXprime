@@ -6,7 +6,7 @@ from telegram import BotCommand
 from telegram.ext import Application, ContextTypes
 
 from .config import load_settings
-from .database import initialize_database, close_database
+from .database import initialize_database, close_database, cleanup_expired_pending_actions
 
 settings = load_settings()
 logging.basicConfig(
@@ -18,6 +18,14 @@ LOGGER = logging.getLogger("waifuxprime")
 
 async def post_init(application: Application):
     await initialize_database()
+    await cleanup_expired_pending_actions()
+    if application.job_queue:
+        application.job_queue.run_repeating(
+            lambda context: cleanup_expired_pending_actions(),
+            interval=900,
+            first=900,
+            name="cleanup-expired-pending-actions",
+        )
     commands = [
         ("start", "Start the bot"), ("help", "Show command help"),
         ("hunt", "Claim a spawned waifu"), ("waifu", "Claim a waifu every 12 hours"),

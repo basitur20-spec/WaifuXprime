@@ -137,6 +137,9 @@ async def transfer_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = await pending_actions.find_one({"_id": token, "status": "pending"})
     if not pending:
         return await q.answer("This request has expired or is already processed.", show_alert=True)
+    if pending.get("expires_at") and pending["expires_at"] <= datetime.utcnow():
+        await pending_actions.update_one({"_id": token, "status": "pending"}, {"$set": {"status": "expired"}})
+        return await q.answer("This request has expired.", show_alert=True)
     if q.from_user.id != pending["sender_id"]:
         return await q.answer("Only the request sender can confirm this action.", show_alert=True)
     await q.answer()
@@ -144,7 +147,7 @@ async def transfer_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await pending_actions.update_one({"_id": token, "status": "pending"}, {"$set": {"status": "cancelled"}})
         return await q.edit_message_text("❌ Request cancelled. No changes were made.")
     locked = await pending_actions.find_one_and_update(
-        {"_id": token, "status": "pending"},
+        {"_id": token, "status": "pending", "expires_at": {"$gt": datetime.utcnow()}},
         {"$set": {"status": "processing"}},
         return_document=ReturnDocument.BEFORE,
     )
@@ -304,6 +307,9 @@ async def sell_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = await pending_actions.find_one({"_id": token, "status": "pending"})
     if not pending:
         return await q.answer("This sell request has expired.", show_alert=True)
+    if pending.get("expires_at") and pending["expires_at"] <= datetime.utcnow():
+        await pending_actions.update_one({"_id": token, "status": "pending"}, {"$set": {"status": "expired"}})
+        return await q.answer("This sell request has expired.", show_alert=True)
     if q.from_user.id != pending["user_id"]:
         return await q.answer("This sell request is not yours.", show_alert=True)
     await q.answer()
@@ -311,7 +317,7 @@ async def sell_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await pending_actions.update_one({"_id": token, "status": "pending"}, {"$set": {"status": "cancelled"}})
         return await q.edit_message_text("❎ SELL CANCELLED. No changes were made.")
     locked = await pending_actions.find_one_and_update(
-        {"_id": token, "status": "pending"},
+        {"_id": token, "status": "pending", "expires_at": {"$gt": datetime.utcnow()}},
         {"$set": {"status": "processing"}},
         return_document=ReturnDocument.BEFORE,
     )

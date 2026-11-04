@@ -57,6 +57,9 @@ async def profile_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = await pending_actions.find_one({"_id": token, "type": "set_profile", "status": "pending"})
     if not pending:
         return await q.answer("This selection has expired.", show_alert=True)
+    if pending.get("expires_at") and pending["expires_at"] <= datetime.utcnow():
+        await pending_actions.update_one({"_id": token, "status": "pending"}, {"$set": {"status": "expired"}})
+        return await q.answer("This selection has expired.", show_alert=True)
     if q.from_user.id != pending["user_id"]:
         return await q.answer("This profile selection is not yours.", show_alert=True)
     await q.answer()

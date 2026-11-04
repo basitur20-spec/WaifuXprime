@@ -173,6 +173,9 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = await pending_actions.find_one({"_id": token})
     if not pending or pending.get("status") != "pending":
         return await q.answer("This action has expired.", show_alert=True)
+    if pending.get("expires_at") and pending["expires_at"] <= datetime.utcnow():
+        await pending_actions.update_one({"_id": token, "status": "pending"}, {"$set": {"status": "expired"}})
+        return await q.answer("This action has expired.", show_alert=True)
     if q.from_user.id != pending["actor_id"]:
         return await q.answer("This action is not yours.", show_alert=True)
     await q.answer()
@@ -180,7 +183,7 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await pending_actions.update_one({"_id": token, "status": "pending"}, {"$set": {"status": "cancelled"}})
         return await q.message.delete()
     claimed = await pending_actions.find_one_and_update(
-        {"_id": token, "status": "pending"},
+        {"_id": token, "status": "pending", "expires_at": {"$gt": datetime.utcnow()}},
         {"$set": {"status": "processing"}},
         return_document=ReturnDocument.BEFORE,
     )
@@ -253,6 +256,9 @@ async def staff_gift_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     _, action, token = q.data.split(":")
     pending = await pending_actions.find_one({"_id": token, "type": "staff_gift", "status": "pending"})
     if not pending:
+        return await q.answer("This gift has expired.", show_alert=True)
+    if pending.get("expires_at") and pending["expires_at"] <= datetime.utcnow():
+        await pending_actions.update_one({"_id": token, "status": "pending"}, {"$set": {"status": "expired"}})
         return await q.answer("This gift has expired.", show_alert=True)
     if q.from_user.id != pending["actor_id"]:
         return await q.answer("This gift request is not yours.", show_alert=True)

@@ -172,3 +172,13 @@ async def debit_balance_once(user_id, currency, amount, reservation_id):
         {"_id": 1},
     )
     return existing is not None
+
+
+async def cleanup_expired_pending_actions():
+    """Delete only expired non-payment requests; payment reservations need refunds."""
+    result = await pending_actions.delete_many({
+        "type": {"$ne": "payment"},
+        "expires_at": {"$lte": datetime.utcnow()},
+        "status": {"$ne": "processing"},
+    })
+    return result.deleted_count
