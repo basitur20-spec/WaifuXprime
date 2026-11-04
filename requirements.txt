@@ -1,11 +1,4 @@
-motor
-aiohttp
-requests
-python-telegram-bot==20.6
-pymongo 
-pyrate-limiter==3.1.0
-apscheduler==3.6.3
-pyrogram
-tgcrypto 
-python-dotenv
-cachetools 
+python-telegram-bot[job-queue]==21.6
+motor==3.6.0
+pymongo==4.9.2
+python-dotenv==1.0.1
