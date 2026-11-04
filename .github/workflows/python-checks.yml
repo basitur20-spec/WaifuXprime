@@ -8,7 +8,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      BOT_TOKEN: "123456:TEST_TOKEN"
+      BOT_TOKEN: "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"
       MONGO_URI: "mongodb://localhost:27017"
       OWNER_ID: "8163432539"
     steps:
