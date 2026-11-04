@@ -16,12 +16,16 @@ logging.basicConfig(
 LOGGER = logging.getLogger("waifuxprime")
 
 
+async def cleanup_pending_job(context: ContextTypes.DEFAULT_TYPE):
+    await cleanup_expired_pending_actions()
+
+
 async def post_init(application: Application):
     await initialize_database()
     await cleanup_expired_pending_actions()
     if application.job_queue:
         application.job_queue.run_repeating(
-            lambda context: cleanup_expired_pending_actions(),
+            cleanup_pending_job,
             interval=900,
             first=900,
             name="cleanup-expired-pending-actions",
