@@ -1,1 +1,1 @@
-worker: python3 -m basit
+worker: python -m Basit
