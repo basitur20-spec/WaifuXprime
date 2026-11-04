@@ -63,8 +63,8 @@ def build_application() -> Application:
         .post_shutdown(post_shutdown)
         .build()
     )
-    from .handlers import start, gameplay, collection, lookup, economy, inline, admin, marketplace, transfers
-    start.register(application)
+    from .handlers import start, gameplay, collection, lookup, economy, inline, admin, marketplace, transfers, games, codes, claims, profiles, maintenance
+    maintenance.register(application)  # Early command guard runs in handler group -1.\n    start.register(application)
     gameplay.register(application)
     collection.register(application)
     lookup.register(application)
@@ -73,6 +73,10 @@ def build_application() -> Application:
     admin.register(application)
     marketplace.register(application)
     transfers.register(application)
+    games.register(application)
+    codes.register(application)
+    claims.register(application)
+    profiles.register(application)
     application.add_error_handler(error_handler)
     return application
 

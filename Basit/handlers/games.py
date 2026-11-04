@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import random
 from datetime import datetime, timedelta
+from pymongo import ReturnDocument
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
@@ -264,6 +265,13 @@ async def dtops_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     action = q.data.split(":")[1]
     await q.answer()
+    if action == "menu":
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💎 Diamonds", callback_data="dt:diamonds"), InlineKeyboardButton("🦋 Waifus", callback_data="dt:waifus")],
+            [InlineKeyboardButton("💰 Cash", callback_data="dt:cash"), InlineKeyboardButton("🥷 Hunters", callback_data="dt:hunters")],
+            [InlineKeyboardButton("💞 Rarity Stats (Staff)", callback_data="dt:rarity")],
+        ])
+        return await q.edit_message_text("🌍 GLOBAL LEADERBOARDS\\nChoose a category.", reply_markup=keyboard)
     if action in {"cash", "diamonds", "waifus"}:
         field = {"cash": "$cash", "diamonds": "$diamonds", "waifus": {"$size": {"$ifNull": ["$characters", []]}}}[action]
         pipeline = [
