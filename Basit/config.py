@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -36,8 +36,8 @@ class Settings:
     mongo_uri: str = os.getenv("MONGO_URI", "").strip()
     mongo_db_name: str = os.getenv("MONGO_DB_NAME", "Character_catcher").strip()
     owner_id: int = _int_env("OWNER_ID")
-    sudo_users: set[int] = None  # type: ignore[assignment]
-    uploader_users: set[int] = None  # type: ignore[assignment]
+    sudo_users: set[int] = field(default_factory=set)
+    uploader_users: set[int] = field(default_factory=set)
     group_id: int = _int_env("GROUP_ID")
     character_channel_id: str = os.getenv("CHARA_CHANNEL_ID", "").strip()
     bot_username: str = os.getenv("BOT_USERNAME", "").strip().lstrip("@")

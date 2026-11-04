@@ -11,7 +11,8 @@ settings = load_settings()
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await get_user(user.id, user)
-    await pm_users.update_one({"_id": user.id}, {"$set": {"_id": user.id}}, upsert=True)
+    if update.effective_chat and update.effective_chat.type == "private":
+        await pm_users.update_one({"_id": user.id}, {"$set": {"_id": user.id}}, upsert=True)
     text = (
         f"𝐇𝐄𝐋𝐋𝐎🕊️ {user.first_name},\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"

@@ -69,7 +69,15 @@ async def post_shutdown(application: Application):
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    LOGGER.exception("Unhandled update error", exc_info=context.error)
+    error = context.error
+    if error:
+        LOGGER.error(
+            "Unhandled update error: %s",
+            error,
+            exc_info=(type(error), error, error.__traceback__),
+        )
+    else:
+        LOGGER.error("Unhandled update error without exception details.")
     message = getattr(update, "effective_message", None)
     if message:
         try:
