@@ -31,6 +31,7 @@ mines_games = db["waifu_mines_games"]
 claim_events = db["waifu_claim_events"]
 user_claims = db["waifu_user_claims"]
 legacy_migrations = db["waifu_legacy_migrations"]
+chat_filters = db["waifu_chat_filters"]
 
 
 async def initialize_database():
@@ -48,6 +49,7 @@ async def initialize_database():
     await codes.create_index("code", unique=True)
     await user_claims.create_index([("event_id", ASCENDING), ("user_id", ASCENDING)], unique=True)
     await mines_games.create_index([("user_id", ASCENDING), ("status", ASCENDING)])
+    await chat_filters.create_index([("chat_id", ASCENDING), ("keyword", ASCENDING)], unique=True)
 
 
 async def close_database():
