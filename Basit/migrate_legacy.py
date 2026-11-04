@@ -5,9 +5,53 @@ import json
 import os
 import sqlite3
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .database import user_collection, characters, initialize_database, close_database
+
+
+def legacy_bonus_fields(record):
+    """Map the source Replit users.json bonus timestamps into live Mongo fields."""
+    fields = {}
+    legacy = {}
+    for key in ("daily", "weekly", "streak", "highest_streak", "last_claim"):
+        if key in record:
+            legacy[key] = record[key]
+
+    def unix_datetime(value):
+        try:
+            timestamp = float(value)
+            if timestamp <= 0:
+                return None
+            return datetime.utcfromtimestamp(timestamp)
+        except (TypeError, ValueError, OverflowError, OSError):
+            return None
+
+    daily_last = unix_datetime(record.get("daily"))
+    weekly_last = unix_datetime(record.get("weekly"))
+    last_claim = unix_datetime(record.get("last_claim"))
+
+    if daily_last:
+        fields["daily_bonus_next_at"] = daily_last + timedelta(days=1)
+    if weekly_last:
+        fields["weekly_bonus_next_at"] = weekly_last + timedelta(days=7)
+    if last_claim:
+        fields["last_daily_claim_at"] = last_claim
+
+    try:
+        fields["daily_streak"] = max(0, int(record.get("streak", 0) or 0))
+    except (TypeError, ValueError):
+        fields["daily_streak"] = 0
+    try:
+        fields["highest_streak"] = max(
+            fields["daily_streak"], int(record.get("highest_streak", 0) or 0)
+        )
+    except (TypeError, ValueError):
+        fields["highest_streak"] = fields["daily_streak"]
+
+    if legacy:
+        fields["legacy_bonus"] = legacy
+    return fields
 
 
 async def ensure_user(uid):
@@ -47,12 +91,12 @@ async def run(args):
                 if not args.dry_run:
                     await ensure_user(uid)
                     await user_collection.update_one(
-                        {"id": int(uid)},
-                        [{"$set": {
-                            "cash": {"$cond": [{"$gt": [{"$ifNull": ["$cash", 0]}, 0]}, "$cash", int(cash or 0)]},
-                            "diamonds": {"$cond": [{"$gt": [{"$ifNull": ["$diamonds", 0]}, 0]}, "$diamonds", int(diamonds or 0)]},
-                            "legacy_balance_migrated_at": {"$ifNull": ["$legacy_balance_migrated_at", datetime.utcnow()]},
-                        }}],
+                        {"id": int(uid), "legacy_balance_migrated_at": {"$exists": False}},
+                        {"$set": {
+                            "cash": int(cash or 0),
+                            "diamonds": int(diamonds or 0),
+                            "legacy_balance_migrated_at": datetime.utcnow(),
+                        }},
                     )
             print(f"Balance rows: {len(rows)}")
         else:
@@ -117,10 +161,13 @@ async def run(args):
                         total += 1
                     if not args.dry_run:
                         await ensure_user(uid)
-                        meta = {k: record[k] for k in ("daily", "weekly", "streak", "highest_streak", "last_claim") if k in record}
+                        await ensure_user(uid)
+                        meta = legacy_bonus_fields(record)
                         if meta:
+                            # Preserve the source values for audit, while also mapping
+                            # cooldowns/streaks into fields used by the live bonus handler.
                             await user_collection.update_one(
-                                {"id": uid}, {"$set": {f"legacy_bonus.{k}": v for k, v in meta.items()}}
+                                {"id": uid}, {"$set": meta}
                             )
             print(f"users.json collection references: {total}")
         else:

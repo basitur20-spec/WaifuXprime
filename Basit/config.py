@@ -32,7 +32,7 @@ def _id_set(name: str) -> set[int]:
 
 @dataclass(frozen=True)
 class Settings:
-    bot_token: str = os.getenv("BOT_TOKEN", "").strip()
+    bot_token: str = (os.getenv("BOT_TOKEN") or os.getenv("Bot_Token") or "").strip()
     mongo_uri: str = os.getenv("MONGO_URI", "").strip()
     mongo_db_name: str = os.getenv("MONGO_DB_NAME", "Character_catcher").strip()
     owner_id: int = _int_env("OWNER_ID")

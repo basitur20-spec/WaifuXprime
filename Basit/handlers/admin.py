@@ -308,6 +308,30 @@ async def role_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
         upsert=True,
     )
     await msg.reply_text(f"✅ Updated permissions for {target.full_name}.")
+    if command in {"/addsudo", "/adduploader"}:
+        role_name = "SUDO" if command == "/addsudo" else "UPLOADER"
+        callback = "SUDO_GUIDE" if command == "/addsudo" else "UPLOADER_GUIDE"
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("COMMANDS 📜", callback_data=callback)
+        ]])
+        try:
+            await context.bot.send_message(
+                chat_id=target.id,
+                text=f"🎉 Congratulations! You have been promoted to {role_name}.\\nTap below to view your commands.",
+                reply_markup=keyboard,
+            )
+        except Exception:
+            await msg.reply_text(
+                f"⚠️ Role updated, but I could not DM {target.full_name}. They must start the bot privately first."
+            )
+    elif command in {"/rsudo", "/ruploader"}:
+        try:
+            await context.bot.send_message(
+                chat_id=target.id,
+                text="⚠️ Your staff access has been revoked by the owner."
+            )
+        except Exception:
+            pass
 
 
 async def role_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
