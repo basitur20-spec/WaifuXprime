@@ -7,6 +7,8 @@ os.environ.setdefault("OWNER_ID", "8163432539")
 
 from Basit.config import normalize_rarity, rarity_meta
 from Basit.services.characters import name_matches
+from Basit.migrate_legacy import legacy_bonus_fields
+from datetime import datetime, timedelta
 
 
 class CoreHelpersTest(unittest.TestCase):
@@ -22,6 +24,25 @@ class CoreHelpersTest(unittest.TestCase):
         self.assertTrue(name_matches("Son Goku", "Goku"))
         self.assertTrue(name_matches("Son Goku", "Son"))
         self.assertFalse(name_matches("Son Goku", "Naruto"))
+
+    def test_legacy_bonus_timestamps_migrate_to_live_cooldowns(self):
+        last_daily = 1_700_000_000
+        last_weekly = 1_700_000_000
+        last_claim = 1_700_000_000
+        fields = legacy_bonus_fields({
+            "daily": last_daily,
+            "weekly": last_weekly,
+            "last_claim": last_claim,
+            "streak": 7,
+            "highest_streak": 14,
+        })
+        expected_last = datetime.utcfromtimestamp(last_daily)
+        self.assertEqual(fields["daily_bonus_next_at"], expected_last + timedelta(days=1))
+        self.assertEqual(fields["weekly_bonus_next_at"], expected_last + timedelta(days=7))
+        self.assertEqual(fields["last_daily_claim_at"], expected_last)
+        self.assertEqual(fields["daily_streak"], 7)
+        self.assertEqual(fields["highest_streak"], 14)
+        self.assertIn("legacy_bonus", fields)
 
     def test_application_registers_all_handlers(self):
         from Basit.main import build_application
