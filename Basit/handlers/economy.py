@@ -10,7 +10,7 @@ from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
 from ..config import load_settings
 from ..database import (
     user_collection, pending_actions, transactions, get_user,
-    debit_balance, credit_balance_once,
+    debit_balance, debit_balance_once, credit_balance_once,
 )
 
 settings = load_settings()
@@ -201,6 +201,29 @@ async def _refund_payment(payment):
         payment["payer_id"], payment.get("currency", "cash"), int(payment["amount"]),
         f"payment-refund:{payment['_id']}",
     )
+    await pending_actions.update_one(
+        {"_id": payment["_id"], "status": "refund_pending"},
+        {"$set": {"status": "refunded", "refunded_at": datetime.utcnow()}},
+    )
+
+
+async def _reserve_payment(payment):
+    """Complete a payment reservation idempotently after retries or a restart."""
+    reserved = await debit_balance_once(
+        payment["payer_id"], payment["currency"], int(payment["amount"]),
+        f"payment-reserve:{payment['_id']}",
+    )
+    if not reserved:
+        await pending_actions.update_one(
+            {"_id": payment["_id"], "status": "reserving"},
+            {"$set": {"status": "failed_insufficient", "failed_at": datetime.utcnow()}},
+        )
+        return False
+    await pending_actions.update_one(
+        {"_id": payment["_id"], "status": "reserving"},
+        {"$set": {"status": "pending", "reserved_at": datetime.utcnow()}},
+    )
+    return True
 
 
 async def _complete_payment(payment, bot=None):
@@ -234,14 +257,29 @@ async def _complete_payment(payment, bot=None):
 
 
 async def _expire_payment(payment_id):
-    expired = await pending_actions.find_one_and_update(
-        {"_id": payment_id, "type": "payment", "status": {"$in": ["choosing", "pending"]}, "expires_at": {"$lte": datetime.utcnow()}},
-        {"$set": {"status": "expired"}},
-        return_document=ReturnDocument.BEFORE,
-    )
-    if expired and expired.get("status") == "pending":
-        await _refund_payment(expired)
-
+    payment = await pending_actions.find_one({"_id": payment_id, "type": "payment"})
+    if not payment or payment.get("expires_at") > datetime.utcnow():
+        return
+    status = payment.get("status")
+    if status == "choosing":
+        await pending_actions.update_one(
+            {"_id": payment_id, "status": "choosing"},
+            {"$set": {"status": "expired", "expired_at": datetime.utcnow()}},
+        )
+        return
+    if status == "reserving":
+        await _reserve_payment(payment)
+        payment = await pending_actions.find_one({"_id": payment_id, "type": "payment"}) or {}
+        status = payment.get("status")
+    if status == "pending":
+        await pending_actions.update_one(
+            {"_id": payment_id, "status": "pending"},
+            {"$set": {"status": "refund_pending", "expired_at": datetime.utcnow()}},
+        )
+        payment = await pending_actions.find_one({"_id": payment_id}) or payment
+        status = payment.get("status")
+    if status == "refund_pending":
+        await _refund_payment(payment)
 
 async def payment_expire(context: ContextTypes.DEFAULT_TYPE):
     await _expire_payment(context.job.data["payment_id"])
@@ -250,21 +288,31 @@ async def payment_expire(context: ContextTypes.DEFAULT_TYPE):
 async def recover_pending_payments(application):
     now = datetime.utcnow()
     pending = await pending_actions.find({
-        "type": "payment", "status": {"$in": ["choosing", "pending", "processing"]}
+        "type": "payment",
+        "status": {"$in": ["choosing", "reserving", "pending", "processing", "refund_pending"]},
     }).to_list(length=5000)
     for item in pending:
-        if item["status"] == "processing":
+        status = item.get("status")
+        if status == "processing":
             await _complete_payment(item)
             continue
-        seconds = max(0.1, (item["expires_at"] - now).total_seconds())
-        if seconds <= 0:
+        if status == "refund_pending":
+            await _refund_payment(item)
+            continue
+        if status == "reserving":
+            await _reserve_payment(item)
+            item = await pending_actions.find_one({"_id": item["_id"]}) or item
+            status = item.get("status")
+            if status == "failed_insufficient":
+                continue
+        if item.get("expires_at") <= now:
             await _expire_payment(item["_id"])
-        elif application.job_queue:
+        elif application.job_queue and status in {"choosing", "pending"}:
+            seconds = max(0.1, (item["expires_at"] - now).total_seconds())
             application.job_queue.run_once(
                 payment_expire, when=seconds, data={"payment_id": item["_id"]},
                 name=f"payment-expire:{item['_id']}",
             )
-
 
 async def pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
@@ -335,31 +383,42 @@ async def pay_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _expire_payment(payment_id)
         return await q.answer("This payment request has expired.", show_alert=True)
     await q.answer()
+
     if action == "cancel":
-        cancelled = await pending_actions.find_one_and_update(
-            {"_id": payment_id, "status": {"$in": ["choosing", "pending"]}},
-            {"$set": {"status": "cancelled"}},
-            return_document=ReturnDocument.BEFORE,
-        )
-        if cancelled and cancelled["status"] == "pending":
-            await _refund_payment(cancelled)
+        if payment.get("status") == "choosing":
+            changed = await pending_actions.update_one(
+                {"_id": payment_id, "status": "choosing"},
+                {"$set": {"status": "cancelled", "cancelled_at": datetime.utcnow()}},
+            )
+            if not changed.modified_count:
+                return await q.answer("This payment is already being processed.", show_alert=True)
+        elif payment.get("status") == "pending":
+            changed = await pending_actions.update_one(
+                {"_id": payment_id, "status": "pending"},
+                {"$set": {"status": "refund_pending", "cancelled_at": datetime.utcnow()}},
+            )
+            if not changed.modified_count:
+                return await q.answer("This payment is already being processed.", show_alert=True)
+            payment["status"] = "refund_pending"
+            await _refund_payment(payment)
+        else:
+            return await q.answer("This payment has already been processed.", show_alert=True)
         return await q.edit_message_text("❌ Payment cancelled. Any reserved funds have been returned.")
+
     if action == "type":
         currency = parts[3]
-        if currency not in {"cash", "diamonds"} or payment["status"] != "choosing":
+        if currency not in {"cash", "diamonds"} or payment.get("status") != "choosing":
             return await q.answer("Choose a valid payment type.", show_alert=True)
-        if not await debit_balance(payment["payer_id"], currency, int(payment["amount"])):
-            return await q.answer(f"Insufficient {currency}.", show_alert=True)
-        changed = await pending_actions.update_one(
-            {"_id": payment_id, "status": "choosing"},
-            {"$set": {"status": "pending", "currency": currency, "reserved_at": datetime.utcnow()}},
+        locked = await pending_actions.find_one_and_update(
+            {"_id": payment_id, "status": "choosing", "expires_at": {"$gt": datetime.utcnow()}},
+            {"$set": {"status": "reserving", "currency": currency}},
+            return_document=ReturnDocument.AFTER,
         )
-        if changed.modified_count != 1:
-            await credit_balance_once(
-                payment["payer_id"], currency, int(payment["amount"]),
-                f"payment-selection-refund:{payment_id}",
-            )
-            return await q.answer("This payment was already updated.", show_alert=True)
+        if not locked:
+            return await q.answer("This payment is already being processed.", show_alert=True)
+        reserved = await _reserve_payment(locked)
+        if not reserved:
+            return await q.answer(f"Insufficient {currency}. No payment was made.", show_alert=True)
         keyboard = InlineKeyboardMarkup([[
             InlineKeyboardButton("✅ Confirm", callback_data=f"pay:confirm:{payment_id}"),
             InlineKeyboardButton("❌ Cancel", callback_data=f"pay:cancel:{payment_id}"),
@@ -370,6 +429,7 @@ async def pay_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "The selected amount is reserved until you confirm or cancel.",
             reply_markup=keyboard,
         )
+
     if action == "confirm":
         locked = await pending_actions.find_one_and_update(
             {"_id": payment_id, "status": "pending", "expires_at": {"$gt": datetime.utcnow()}},
@@ -391,7 +451,6 @@ async def pay_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         label = "Cash💸" if locked["currency"] == "cash" else "Diamonds💎"
         return await q.edit_message_text(f"✅ Payment successful! You paid {_money(locked['amount'])} {label}.")
     return
-
 
 async def payrefresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != settings.owner_id:

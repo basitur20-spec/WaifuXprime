@@ -144,3 +144,31 @@ async def credit_balance_once(user_id, currency, amount, transaction_id):
         {"$inc": {field: amount}, "$addToSet": {"processed_transactions": str(transaction_id)}},
     )
     return result.modified_count == 1
+
+
+async def debit_balance_once(user_id, currency, amount, reservation_id):
+    """Atomically reserve a debit once, even if the same callback is retried."""
+    amount = int(amount)
+    if amount <= 0:
+        return False
+    field = "cash" if currency == "cash" else "diamonds"
+    reservation_id = str(reservation_id)
+    await get_user(user_id)
+    result = await user_collection.update_one(
+        {
+            "id": int(user_id),
+            field: {"$gte": amount},
+            "reserved_transactions": {"$ne": reservation_id},
+        },
+        {
+            "$inc": {field: -amount},
+            "$addToSet": {"reserved_transactions": reservation_id},
+        },
+    )
+    if result.modified_count == 1:
+        return True
+    existing = await user_collection.find_one(
+        {"id": int(user_id), "reserved_transactions": reservation_id},
+        {"_id": 1},
+    )
+    return existing is not None
