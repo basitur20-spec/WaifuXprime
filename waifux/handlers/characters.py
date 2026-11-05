@@ -41,8 +41,7 @@ async def send_spawn(application,group_id):
         if not chars: return
         ch=rarity_pool_weights(chars,{r:RARITY_WEIGHTS[r] for r in eligible})
         con.execute('INSERT OR REPLACE INTO active_spawns(group_id,character_id,expires_at,message_id) VALUES(?,?,?,0)',(group_id,str(ch['id']),now+SPAWN_LIFETIME_SECONDS))
-    cap='✨ ᴀ ɴᴇᴡ ᴄʜᴀʀᴀᴄᴛᴇʀ ʜᴀꜱ ᴀᴘᴘᴇᴀʀᴇᴅ! ✨
-ᴜꜱᴇ /hunt (ɴᴀᴍᴇ) ᴛᴏ ᴀᴅᴅ ɪᴛ ɪɴ ʏᴏᴜʀ COLLECTION.'
+    cap='✨ ᴀ ɴᴇᴡ ᴄʜᴀʀᴀᴄᴛᴇʀ ʜᴀꜱ ᴀᴘᴘᴇᴀʀᴇᴅ! ✨\nᴜꜱᴇ /hunt (ɴᴀᴍᴇ) ᴛᴏ ᴀᴅᴅ ɪᴛ ɪɴ ʏᴏᴜʀ COLLECTION.'
     try:
         msg=await application.bot.send_photo(group_id,ch['image'],caption=cap,has_spoiler=True)
         with db() as con: con.execute('UPDATE active_spawns SET message_id=? WHERE group_id=?',(msg.message_id,group_id))
@@ -94,8 +93,7 @@ async def group_message(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if spam:
         try:
             await context.bot.restrict_chat_member(gid,uid,permissions=__import__('telegram').ChatPermissions(can_send_messages=False),until_date=now+300)
-            await msg.reply_text(f'{user.first_name}, your messages will not be counted for 5 minutes.
-You cannot spam to get characters.')
+            await msg.reply_text(f'{user.first_name}, your messages will not be counted for 5 minutes.\nYou cannot spam to get characters.')
         except Exception: pass
         return
     if should:

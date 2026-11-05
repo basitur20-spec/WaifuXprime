@@ -27,9 +27,7 @@ async def game(update:Update,context:ContextTypes.DEFAULT_TYPE):
 async def dtops_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
     with db() as con:
         rows=con.execute('SELECT user_id,diamonds FROM balance.user_balance ORDER BY diamonds DESC LIMIT 10').fetchall()
-        text='💎 <b>Diamond leaderboard</b>
-'+('
-'.join(f'{i}. <code>{r["user_id"]}</code> — {fmt(r["diamonds"])}' for i,r in enumerate(rows,1)) or 'No users yet.')
+        text='💎 <b>Diamond leaderboard</b>\n'+('\n'.join(f'{i}. <code>{r["user_id"]}</code> — {fmt(r["diamonds"])}' for i,r in enumerate(rows,1)) or 'No users yet.')
     await update.message.reply_text(text,parse_mode='HTML')
 
 def register_games(app):

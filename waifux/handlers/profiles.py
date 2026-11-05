@@ -28,12 +28,8 @@ async def profile(update:Update,context:ContextTypes.DEFAULT_TYPE):
         state=user_state(target.id,target.username or '',target.first_name or '',con)
         total=con.execute('SELECT COUNT(*) n FROM collection.collections WHERE user_id=?',(target.id,)).fetchone()['n']
         cash,dia=__import__('waifux.database',fromlist=['get_balance']).get_balance(target.id,con)
-    text=f'👤 <b>{username(target)}</b>
-🎴 Waifus: {total}
-💰 Cash: {cash:,}
-💎 Diamonds: {dia:,}'
-    if state['profile_waifu']: text+=f'
-🌸 Featured: {state["profile_waifu"]}'
+    text=f'👤 <b>{username(target)}</b>\n🎴 Waifus: {total}\n💰 Cash: {cash:,}\n💎 Diamonds: {dia:,}'
+    if state['profile_waifu']: text+=f'\n🌸 Featured: {state["profile_waifu"]}'
     await update.message.reply_text(text,parse_mode='HTML')
 
 async def photos(update:Update,context:ContextTypes.DEFAULT_TYPE):

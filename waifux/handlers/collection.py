@@ -18,16 +18,14 @@ def _collection_text(rows,owner,page,mode,value,viewer):
     title='YOUR WAIFU COLLECTION' if owner==viewer else f"{owner}'S WAIFU COLLECTION · VIEW ONLY"
     lines=[f'📚 <b>{title}</b>',f'Page {page+1}/{max(1,(len(rows)+PAGE-1)//PAGE)}']
     if mode!='default': lines.append(f'Filter: {mode.title()} · {value}')
-    if not chunk: lines.append('
-No waifus yet.')
+    if not chunk: lines.append('\nNo waifus yet.')
     current=None
     for row in chunk:
         anime=row['anime'] or 'Unknown anime'
         if anime!=current: lines.extend(['',f'🎬 <b>{anime}</b>']); current=anime
         fav='❤️ ' if row['favorite'] else ''
         lines.append(f"{fav}🆔 <code>{row['waifu_id']}</code> | {RARITY_EMOJI.get(row['rarity'],'⚪')} | {row['name'] or 'Unknown'}")
-    return '
-'.join(lines)
+    return '\n'.join(lines)
 
 def _keyboard(owner,page,total,mode,value,viewer):
     rows=[]

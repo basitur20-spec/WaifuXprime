@@ -10,9 +10,7 @@ async def market_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
         uid=update.effective_user.id
         with db() as con:
             rows=con.execute('SELECT m.*,c.name,c.anime,c.rarity FROM marketplace m LEFT JOIN characters c ON c.id=m.character_id WHERE m.bought=0 ORDER BY m.price LIMIT 10').fetchall()
-        text='🛒 <b>Marketplace</b>
-'+('
-'.join(f'{r["character_id"]} · {r["name"] or "Unknown"} — {fmt(r["price"])} (/buy {r["character_id"]})' for r in rows) or 'No listings.')
+        text='🛒 <b>Marketplace</b>\n'+('\n'.join(f'{r["character_id"]} · {r["name"] or "Unknown"} — {fmt(r["price"])} (/buy {r["character_id"]})' for r in rows) or 'No listings.')
         return await update.message.reply_text(text,parse_mode='HTML')
     await update.message.reply_text('Commands: /market, /buy <character id>, /auction <character id> <starting bid>.')
 
