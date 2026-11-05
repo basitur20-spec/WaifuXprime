@@ -96,6 +96,8 @@ async def fav_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await show_collection(update,context,int(uid))
 
 async def dmode_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    u=update.effective_user
+    with db() as con: user_state(u.id,u.username or '',u.first_name or '',con)
     rarities=list(RARITY_EMOJI)
     buttons=[[InlineKeyboardButton('DEFAULT',callback_data='dm:default:'),InlineKeyboardButton('CHARACTERS',callback_data='dm:character:')],[InlineKeyboardButton('RARITY',callback_data='dm:rarity:') ,InlineKeyboardButton('ANIME',callback_data='dm:anime:')]]
     for i in range(0,len(rarities),4): buttons.append([InlineKeyboardButton(RARITY_EMOJI[r]+' '+r,callback_data='dm:setrarity:'+r) for r in rarities[i:i+4]])
@@ -108,13 +110,17 @@ async def dmode_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     q=update.callback_query; await q.answer(); parts=q.data.split(':',2); mode=parts[1]; value=parts[2] if len(parts)>2 else ''
     if q.from_user.id!=q.message.chat_id and q.message.chat.type=='private': await q.answer('Only the requester can change this mode.',show_alert=True); return
     if mode in ('default','character','rarity','anime'):
-        with db() as con: con.execute('UPDATE user_state SET dmode=?,dmode_value=? WHERE user_id=?',(mode,value,q.from_user.id))
+        with db() as con:
+            user_state(q.from_user.id,q.from_user.username or '',q.from_user.first_name or '',con)
+            con.execute('UPDATE user_state SET dmode=?,dmode_value=? WHERE user_id=?',(mode,value,q.from_user.id))
         await q.edit_message_text(f'Collection mode set to {mode}.'+(f' · {value}' if value else ''))
         await show_collection(update,context,q.from_user.id)
     elif mode.startswith('set'):
         field=mode[3:].lower(); val=value
         actual='rarity' if field=='rarity' else 'anime'
-        with db() as con: con.execute('UPDATE user_state SET dmode=?,dmode_value=? WHERE user_id=?',(actual,val,q.from_user.id))
+        with db() as con:
+            user_state(q.from_user.id,q.from_user.username or '',q.from_user.first_name or '',con)
+            con.execute('UPDATE user_state SET dmode=?,dmode_value=? WHERE user_id=?',(actual,val,q.from_user.id))
         await q.edit_message_text(f'Collection filtered by {val}.')
         await show_collection(update,context,q.from_user.id)
 
@@ -129,6 +135,7 @@ async def inline_query(update:Update,context:ContextTypes.DEFAULT_TYPE):
 def register_collection(app):
     app.add_handler(CommandHandler('collection',collection_cmd))
     app.add_handler(CommandHandler('fav',fav_cmd))
+    app.add_handler(CommandHandler('f',fav_cmd))
     app.add_handler(CommandHandler('fave',fav_cmd))
     app.add_handler(CommandHandler('dmode',dmode_cmd))
     app.add_handler(CallbackQueryHandler(collection_callback,pattern=r'^col:'))

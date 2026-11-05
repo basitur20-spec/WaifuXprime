@@ -5,7 +5,7 @@ from .config import DATA_DIR, STATE_DB, BALANCE_DB, COLLECTION_DB, USERS_JSON, B
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS characters(id TEXT PRIMARY KEY,name TEXT NOT NULL,anime TEXT NOT NULL,rarity TEXT NOT NULL,image TEXT NOT NULL,price INTEGER NOT NULL DEFAULT 0,aliases TEXT NOT NULL DEFAULT '[]',uploader_id INTEGER,created_at INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS user_state(user_id INTEGER PRIMARY KEY,username TEXT,first_name TEXT,created_at INTEGER NOT NULL DEFAULT 0,last_waifu INTEGER NOT NULL DEFAULT 0,last_marriage INTEGER NOT NULL DEFAULT 0,last_propose INTEGER NOT NULL DEFAULT 0,last_pay INTEGER NOT NULL DEFAULT 0,last_sell INTEGER NOT NULL DEFAULT 0,sell_day TEXT NOT NULL DEFAULT '',sell_count INTEGER NOT NULL DEFAULT 0,dmode TEXT NOT NULL DEFAULT 'default',dmode_value TEXT NOT NULL DEFAULT '',profile_photo TEXT NOT NULL DEFAULT '',profile_waifu TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS user_state(user_id INTEGER PRIMARY KEY,username TEXT,first_name TEXT,created_at INTEGER NOT NULL DEFAULT 0,last_explore INTEGER NOT NULL DEFAULT 0,last_waifu INTEGER NOT NULL DEFAULT 0,last_marriage INTEGER NOT NULL DEFAULT 0,last_propose INTEGER NOT NULL DEFAULT 0,last_pay INTEGER NOT NULL DEFAULT 0,last_sell INTEGER NOT NULL DEFAULT 0,sell_day TEXT NOT NULL DEFAULT '',sell_count INTEGER NOT NULL DEFAULT 0,dmode TEXT NOT NULL DEFAULT 'default',dmode_value TEXT NOT NULL DEFAULT '',profile_photo TEXT NOT NULL DEFAULT '',profile_waifu TEXT NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS groups_state(group_id INTEGER PRIMARY KEY,messages INTEGER NOT NULL DEFAULT 0,interval_seconds INTEGER NOT NULL DEFAULT 0,enabled INTEGER NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS active_spawns(group_id INTEGER PRIMARY KEY,character_id TEXT NOT NULL,expires_at INTEGER NOT NULL,message_id INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS rarity_switch(rarity TEXT PRIMARY KEY,enabled INTEGER NOT NULL DEFAULT 1);
@@ -57,6 +57,7 @@ def init_db():
         con.execute("CREATE TABLE IF NOT EXISTS balance.user_balance(user_id INTEGER PRIMARY KEY,cash INTEGER DEFAULT 0,diamonds INTEGER DEFAULT 0)")
         con.execute("CREATE TABLE IF NOT EXISTS collection.collections(user_id INTEGER,username TEXT,waifu_id TEXT,name TEXT,anime TEXT,rarity TEXT,image TEXT,favorite INTEGER DEFAULT 0)")
         _add_column(con,"collection","collections","favorite","INTEGER NOT NULL DEFAULT 0")
+        _add_column(con,"main","user_state","last_explore","INTEGER NOT NULL DEFAULT 0")
         _migrate_legacy(con)
 
 def _add_column(con,schema,table,column,definition):

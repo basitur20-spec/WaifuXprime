@@ -26,10 +26,10 @@ async def explore_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
     uid=update.effective_user.id; now=int(time.time())
     with db() as con:
         s=user_state(uid,update.effective_user.username or '',update.effective_user.first_name or '',con)
-        if now-s['last_waifu']<1800: return await update.message.reply_text('Explore is cooling down. Try again later.')
+        if now-s['last_explore']<1800: return await update.message.reply_text('Explore is cooling down. Try again later.')
         cash=random.randint(100,500); dia=random.randint(1,5)
         adjust_balance(uid,cash=cash,diamonds=dia,con=con)
-        con.execute('UPDATE user_state SET last_waifu=? WHERE user_id=?',(now,uid))
+        con.execute('UPDATE user_state SET last_explore=? WHERE user_id=?',(now,uid))
     await update.message.reply_text(f'🗺️ Adventure complete!\n💰 +{cash} Cash\n💎 +{dia} Diamonds')
 
 async def bonus_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -63,5 +63,5 @@ async def pay_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
 def register_core(app):
     app.add_handler(CommandHandler('start',start)); app.add_handler(CommandHandler('help',help_cmd))
     app.add_handler(CommandHandler('balance',balance_cmd)); app.add_handler(CommandHandler('explore',explore_cmd))
-    app.add_handler(CommandHandler('bonus',bonus_cmd)); app.add_handler(CommandHandler('pay',pay_cmd))
+    app.add_handler(CommandHandler('bonus',bonus_cmd)); app.add_handler(CommandHandler('bonusrefresh',bonus_cmd))
     app.add_handler(CallbackQueryHandler(bonus_callback,pattern=r'^bonus:'))
