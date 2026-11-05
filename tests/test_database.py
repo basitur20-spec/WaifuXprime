@@ -17,4 +17,13 @@ class DatabaseSmokeTest(unittest.TestCase):
                 self.assertEqual(len(d.collection_rows(123,con)),1)
             self.assertEqual(d.get_character('test-1')['name'],'Sample')
 
+    def test_handlers_import_and_application_registers(self):
+        from telegram.ext import Application
+        from waifux.handlers import register_all
+        app=Application.builder().token('123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi').build()
+        register_all(app)
+        handlers=[h for group in app.handlers.values() for h in group]
+        self.assertGreaterEqual(len(handlers),35)
+        self.assertTrue(any(h.__class__.__name__=='InlineQueryHandler' for h in handlers))
+
 if __name__=='__main__': unittest.main()
